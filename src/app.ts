@@ -22,12 +22,13 @@ const PORT = process.env.PORT ?? 3008
 
 const welcomeFlow = addKeyword<Provider, Database>(['hi', 'hello', 'hola'])
     .addAnswer(`Konichiwa Bienvenido al asistente virtual para tu viaje a Japon 🏯`)
-    .addAnswer(`¿En qué puedo ayudarte?`, { capture: true, delay: 800 }, async (ctx, ctxFn) => {
+    .addAnswer(`¿En qué puedo ayudarte?`, { capture: true, delay: 800 }, async (ctx, { provider, flowDynamic }) => {
       const prompt = "Eres un experto de viaje a japon para mexicanos"
       const message = ctx.body
 
+      await provider.vendor.sendPresenceUpdate('composing', ctx.key.remoteJid)
       const response = await GeminiService.getFromPrompt(prompt, message);
-      await ctxFn.flowDynamic(response);
+      await flowDynamic(response);
     })
     
 
