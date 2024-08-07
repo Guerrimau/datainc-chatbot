@@ -5,15 +5,14 @@ dotenv.config();
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-export async function getFromPrompt(prompt: string, text: string) {
+export async function getFromPrompt(prompt: string) {
   const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-  const formatPrompt = `Eres un asistente virtual que response a traves de mensajeria.
-    ${prompt}. A continuacion te voy a mandar un input de un cliente: ${text}`;
-
-  const result = await model.generateContent(formatPrompt);
+  const result = await model.generateContent(prompt);
   const response = result.response;
   const answer = response.text();
+  const jsonObject = JSON.parse(answer);
+  console.log(jsonObject);
 
   return answer;
 }

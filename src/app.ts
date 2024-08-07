@@ -1,111 +1,123 @@
-import { join } from 'path'
-import { createBot, createProvider, createFlow, addKeyword, utils } from '@builderbot/bot'
-import { MemoryDB as Database } from '@builderbot/bot'
-import GeminiService from './services/GeminiService'
-import { BaileysProvider as Provider } from '@builderbot/provider-baileys'
+import { join } from "path";
+import {
+  createBot,
+  createProvider,
+  createFlow,
+  addKeyword,
+  utils,
+  EVENTS,
+  addAnswer,
+} from "@builderbot/bot";
+import { MemoryDB as Database } from "@builderbot/bot";
+import GeminiService from "./services/GeminiService";
+import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
+import { convertOrderMessagePrompt } from "./prompts/convert-order-message";
+import { menuMessage } from "./messages/menu-message";
+import { availableProducts } from "./MOCK/available-products";
+import { getReadableMessageFromOrderList } from "./utils/get-readable-message-from-order-list";
 
-const PORT = process.env.PORT ?? 3008
+const PORT = process.env.PORT ?? 3008;
 
-// const discordFlow = addKeyword<Provider, Database>('doc').addAnswer(
-//     ['You can see the documentation here', '📄 https://builderbot.app/docs \n', 'Do you want to continue? *yes*'].join(
-//         '\n'
-//     ),
-//     { capture: true },
-//     async (ctx, { gotoFlow, flowDynamic }) => {
-//         if (ctx.body.toLocaleLowerCase().includes('yes')) {
-//             return gotoFlow(registerFlow)
-//         }
-//         await flowDynamic('Thanks!')
-//         return
-//     }
-// )
+const welcomeFlow = addKeyword<Provider, Database>(EVENTS.WELCOME).addAction(
+  async (ctx, ctxFn) => {
+    const message = ctx.body.toLowerCase();
 
-const welcomeFlow = addKeyword<Provider, Database>(['hi', 'hello', 'hola'])
-    .addAnswer(`Konichiwa Bienvenido al asistente virtual para tu viaje a Japon 🏯`)
-    .addAnswer(`¿En qué puedo ayudarte?`, { capture: true, delay: 800 }, async (ctx, { provider, flowDynamic }) => {
-      const prompt = "Eres un experto de viaje a japon para mexicanos"
-      const message = ctx.body
+    const ORDER_WORDS = [
+      "pedido",
+      "quiero",
+      "necesito",
+      "comprar",
+      "me mandas",
+    ];
 
-      await provider.vendor.sendPresenceUpdate('composing', ctx.key.remoteJid)
-      const response = await GeminiService.getFromPrompt(prompt, message);
-      await flowDynamic(response);
-    })
+    const isAnOrder = ORDER_WORDS.some((word) => message.includes(word));
+
+    if (isAnOrder) return await ctxFn.gotoFlow(orderFlow);
+    return await ctxFn.gotoFlow(menuFlow);
+  }
+);
+
+
+
+const menuFlow = addKeyword<Provider, Database>(EVENTS.ACTION).addAnswer(
+  menuMessage,
+  { capture: true },
+  async (ctx, ctxFn) => {
+    const message = ctx.body.toLowerCase();
+
+    if (message.includes("1")) return await ctxFn.gotoFlow(orderFlow);
+    if (message.includes("2")) return await ctxFn.flowDynamic("Realizar pedido con formato");
+    if (message.includes("3")) return await ctxFn.flowDynamic("Catalogo");
+  }
+);
+
+const orderFlow = addKeyword<Provider, Database>(EVENTS.ACTION).addAnswer(
+  "Por favor, escribe tu pedido.",
+  { capture: true },
+  async (ctx, ctxFn) => {
+    const orderMessage = ctx.body;
+    const orderMessagePrompt = convertOrderMessagePrompt(availableProducts, orderMessage);
+    const response = await GeminiService.getFromPrompt(orderMessagePrompt);
+
+    const order = JSON.parse(response);
     
+    const answer = getReadableMessageFromOrderList(order);
 
-// const registerFlow = addKeyword<Provider, Database>(utils.setEvent('REGISTER_FLOW'))
-//     .addAnswer(`What is your name?`, { capture: true }, async (ctx, { state }) => {
-//         await state.update({ name: ctx.body })
-//     })
-//     .addAnswer('What is your age?', { capture: true }, async (ctx, { state }) => {
-//         await state.update({ age: ctx.body })
-//     })
-//     .addAction(async (_, { flowDynamic, state }) => {
-//         await flowDynamic(`${state.get('name')}, thanks for your information!: Your age: ${state.get('age')}`)
-//     })
-
-// const fullSamplesFlow = addKeyword<Provider, Database>(['samples', utils.setEvent('SAMPLES')])
-//     .addAnswer(`💪 I'll send you a lot files...`)
-//     .addAnswer(`Send image from Local`, { media: join(process.cwd(), 'assets', 'sample.png') })
-//     .addAnswer(`Send video from URL`, {
-//         media: 'https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExYTJ0ZGdjd2syeXAwMjQ4aWdkcW04OWlqcXI3Ynh1ODkwZ25zZWZ1dCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/LCohAb657pSdHv0Q5h/giphy.mp4',
-//     })
-//     .addAnswer(`Send audio from URL`, { media: 'https://cdn.freesound.org/previews/728/728142_11861866-lq.mp3' })
-//     .addAnswer(`Send file from URL`, {
-//         media: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
-//     })
+    await ctxFn.flowDynamic(answer);
+});
 
 const main = async () => {
-    const adapterFlow = createFlow([welcomeFlow])
-    
-    const adapterProvider = createProvider(Provider)
-    const adapterDB = new Database()
+  const adapterFlow = createFlow([welcomeFlow, menuFlow, orderFlow]);
 
-    const { handleCtx, httpServer } = await createBot({
-        flow: adapterFlow,
-        provider: adapterProvider,
-        database: adapterDB,
+  const adapterProvider = createProvider(Provider);
+  const adapterDB = new Database();
+
+  const { handleCtx, httpServer } = await createBot({
+    flow: adapterFlow,
+    provider: adapterProvider,
+    database: adapterDB,
+  });
+
+  adapterProvider.server.post(
+    "/v1/messages",
+    handleCtx(async (bot, req, res) => {
+      const { number, message, urlMedia } = req.body;
+      await bot.sendMessage(number, message, { media: urlMedia ?? null });
+      return res.end("sended");
     })
+  );
 
-    adapterProvider.server.post(
-        '/v1/messages',
-        handleCtx(async (bot, req, res) => {
-            const { number, message, urlMedia } = req.body
-            await bot.sendMessage(number, message, { media: urlMedia ?? null })
-            return res.end('sended')
-        })
-    )
+  adapterProvider.server.post(
+    "/v1/register",
+    handleCtx(async (bot, req, res) => {
+      const { number, name } = req.body;
+      await bot.dispatch("REGISTER_FLOW", { from: number, name });
+      return res.end("trigger");
+    })
+  );
 
-    adapterProvider.server.post(
-        '/v1/register',
-        handleCtx(async (bot, req, res) => {
-            const { number, name } = req.body
-            await bot.dispatch('REGISTER_FLOW', { from: number, name })
-            return res.end('trigger')
-        })
-    )
+  adapterProvider.server.post(
+    "/v1/samples",
+    handleCtx(async (bot, req, res) => {
+      const { number, name } = req.body;
+      await bot.dispatch("SAMPLES", { from: number, name });
+      return res.end("trigger");
+    })
+  );
 
-    adapterProvider.server.post(
-        '/v1/samples',
-        handleCtx(async (bot, req, res) => {
-            const { number, name } = req.body
-            await bot.dispatch('SAMPLES', { from: number, name })
-            return res.end('trigger')
-        })
-    )
+  adapterProvider.server.post(
+    "/v1/blacklist",
+    handleCtx(async (bot, req, res) => {
+      const { number, intent } = req.body;
+      if (intent === "remove") bot.blacklist.remove(number);
+      if (intent === "add") bot.blacklist.add(number);
 
-    adapterProvider.server.post(
-        '/v1/blacklist',
-        handleCtx(async (bot, req, res) => {
-            const { number, intent } = req.body
-            if (intent === 'remove') bot.blacklist.remove(number)
-            if (intent === 'add') bot.blacklist.add(number)
+      res.writeHead(200, { "Content-Type": "application/json" });
+      return res.end(JSON.stringify({ status: "ok", number, intent }));
+    })
+  );
 
-            res.writeHead(200, { 'Content-Type': 'application/json' })
-            return res.end(JSON.stringify({ status: 'ok', number, intent }))
-        })
-    )
+  httpServer(+PORT);
+};
 
-    httpServer(+PORT)
-}
-
-main()
+main();

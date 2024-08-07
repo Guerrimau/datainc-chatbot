@@ -1,0 +1,80 @@
+export const availableProducts = [
+  {
+    id: 1,
+    name: "Manzana",
+    type: ["KG", "CAJA", "GR", "BOLSA"],
+    defaultType: "KG",
+  },
+  {
+    id: 2,
+    name: "Papa",
+    type: ["KG", "CAJA"],
+    defaultType: "CAJA",
+  },
+  {
+    id: 3,
+    name: "Cebolla",
+    type: ["KG", "BOLSA"],
+    defaultType: "KG",
+  },
+  {
+    id: 4,
+    name: "Tomate",
+    type: ["KG", "CAJA"],
+    defaultType: "KG",
+  },
+  {
+    id: 5,
+    name: "Zanahoria",
+    type: ["KG", "BOLSA"],
+    defaultType: "BOLSA",
+  },
+  {
+    id: 6,
+    name: "Lechuga",
+    type: ["PZA", "BOLSA"],
+    defaultType: "PZA",
+  },
+  {
+    id: 7,
+    name: "Pepino",
+    type: ["PZA", "KG"],
+    defaultType: "PZA",
+  },
+  {
+    id: 8,
+    name: "Jitomate",
+    type: ["KG", "CAJA"],
+    defaultType: "KG",
+  },
+  {
+    id: 9,
+    name: "Chile verde",
+    type: ["KG", "BOLSA"],
+    defaultType: "KG",
+  },
+  {
+    id: 10,
+    name: "Aguacate",
+    type: ["PZA", "KG"],
+    defaultType: "PZA",
+  },
+  {
+    id: 11,
+    name: "Plátano",
+    type: ["KG", "UNIDAD"],
+    defaultType: "KG",
+  },
+  {
+    id: 12,
+    name: "Limón",
+    type: ["KG", "UNIDAD"],
+    defaultType: "KG",
+  },
+  {
+    id: 13,
+    name: "Pimiento Morron",
+    type: ["KG", "UNIDAD"],
+    defaultType: "UNIDAD",
+  },
+];
