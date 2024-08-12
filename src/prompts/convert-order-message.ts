@@ -7,7 +7,7 @@ export const convertOrderMessagePrompt = (productList, orderMessage) => {
     La respuesta no debe de incluir la palabra "json" ni saltos de línea. Si ninguno de los productos coincide con el pedido, la respuesta debe ser un arreglo vacío.
 
     **Reglas:**
-    1. La lista de productos disponibles tiene el siguiente formato: [{ "id": 1, "name": "Manzana", "default_unit": "KG" }, { "id": 2, "name": "Plátano", "default_unit": "KG" }, ...]
+    1. La lista de productos disponibles tiene el siguiente formato: [{ "id": 1, "name": "Manzana" }, { "id": 2, "name": "Plátano" }, ...]
     2. El pedido incluirá cantidades y unidades (ej. "3 kilos de manzana", "2 bolsas de uva").
     3. Los tipos de medida posibles son: "KG", "BOLSAS", "UNIDADES", "LB". Si el tipo de medida no está especificado en el pedido, usa el tipo de medida por defecto del producto.
     4. Los tipos de medida en el pedido pueden aparecer en diferentes formas: "kilos", "kg", "bolsas", "bolsa", "unidades", "unidad", "libras", "libra", y deben ser estandarizadas a "KG", "BOLSAS", "UNIDADES", "LB" respectivamente.
