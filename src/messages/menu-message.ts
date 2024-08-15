@@ -1,8 +1,4 @@
-export const menuMessage = `¡Hola!👋
-Somos distribuidora "El Charly".
-Estamos encantados de tenerte aquí.
-¡Gracias por elegirnos!
-A continuación, selecciona alguna de las siguientes opciones:
+export const menuMessage = `A continuación, selecciona alguna de las siguientes opciones:
   1.- Realizar pedido
   2.- Realizar pedido con formato
   3.- Catalogo

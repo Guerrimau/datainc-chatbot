@@ -15,6 +15,8 @@ import { convertOrderMessagePrompt } from "./prompts/convert-order-message";
 import { menuMessage } from "./messages/menu-message";
 import { availableProducts } from "./MOCK/available-products";
 import { getReadableMessageFromOrderList } from "./utils/get-readable-message-from-order-list";
+import { optionMessage } from "./messages/fallback-message";
+import { welcomeMessage } from "./messages/welcome-message";
 
 const PORT = process.env.PORT ?? 3008;
 
@@ -37,19 +39,28 @@ const welcomeFlow = addKeyword<Provider, Database>(EVENTS.WELCOME).addAction(
   }
 );
 
+const fallbackFlow = addKeyword<Provider, Database>(EVENTS.ACTION)
+.addAnswer(optionMessage)
+.addAnswer(menuMessage)
 
-
-const menuFlow = addKeyword<Provider, Database>(EVENTS.ACTION).addAnswer(
+const menuFlow = addKeyword<Provider, Database>(EVENTS.ACTION)
+.addAnswer(welcomeMessage)
+.addAnswer(
   menuMessage,
   { capture: true },
   async (ctx, ctxFn) => {
     const message = ctx.body.toLowerCase();
 
-    if (message.includes("1")) return await ctxFn.gotoFlow(orderFlow);
-    if (message.includes("2")) return await ctxFn.flowDynamic("Realizar pedido con formato");
-    if (message.includes("3")) return await ctxFn.flowDynamic("Catalogo");
+    if (message.includes("1")) {
+      return await ctxFn.gotoFlow(orderFlow);
+    } else if (message.includes("2")) {
+      return await ctxFn.gotoFlow(orderOnlineFlow);
+    } else if (message.includes("3")) {
+      return await ctxFn.gotoFlow(productsFlow);
+  } else {
+    return await ctxFn.gotoFlow(fallbackFlow)
   }
-);
+});
 
 const orderFlow = addKeyword<Provider, Database>(EVENTS.ACTION).addAnswer(
   "Por favor, escribe tu pedido.",
@@ -60,11 +71,38 @@ const orderFlow = addKeyword<Provider, Database>(EVENTS.ACTION).addAnswer(
     const response = await GeminiService.getFromPrompt(orderMessagePrompt);
 
     const order = JSON.parse(response);
-    
+    console.log(order);
     const answer = getReadableMessageFromOrderList(order);
 
-    await ctxFn.flowDynamic(answer);
-});
+    await ctxFn.flowDynamic(answer)
+    await ctxFn.gotoFlow(orderConfirmationFlow);
+  });
+
+const orderOnlineFlow = addKeyword<Provider, Database>(EVENTS.ACTION).addAnswer(
+  "www.elcharly.com"
+);
+
+const productsFlow = addKeyword<Provider, Database>(EVENTS.ACTION).addAnswer(
+  "www.elcharly.com/products"
+);
+
+const orderConfirmationFlow = addKeyword<Provider, Database>(EVENTS.ACTION).addAnswer(
+  "¿Deseas confirmar tu pedido?",
+  { capture: true },
+  async (ctx, ctxFn) => {
+    const message = ctx.body.toLowerCase();
+    if (message.includes("si")) {
+      console.log(message);  
+      return await ctxFn.gotoFlow(orderFlow);
+    } else if (message.includes("no")) {
+      console.log(message);  
+      return await ctxFn.gotoFlow(menuFlow);
+    } else {
+      console.log(message);  
+      return await ctxFn.gotoFlow(fallbackFlow)
+    }
+  }
+);
 
 const main = async () => {
   const adapterFlow = createFlow([welcomeFlow, menuFlow, orderFlow]);

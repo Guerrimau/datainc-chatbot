@@ -15,7 +15,9 @@
     "@builderbot/bot": "1.1.6",
     "@builderbot/provider-baileys": "^1.1.6",
     "@google/generative-ai": "^0.16.0",
-    "dotenv": "^16.4.5"
+    "@img/sharp-win32-x64": "^0.33.4",
+    "dotenv": "^16.4.5",
+    "sharp": "^0.33.4"
   },
   "devDependencies": {
     "@types/node": "^20.11.30",
@@ -30,5 +32,6 @@
     "typescript": "^5.4.3"
   },
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "packageManager": "yarn@4.4.0+sha512.91d93b445d9284e7ed52931369bc89a663414e5582d00eea45c67ddc459a2582919eece27c412d6ffd1bd0793ff35399381cb229326b961798ce4f4cc60ddfdb"
 }
