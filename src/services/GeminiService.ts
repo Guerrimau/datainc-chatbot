@@ -11,8 +11,6 @@ export async function getFromPrompt(prompt: string) {
   const result = await model.generateContent(prompt);
   const response = result.response;
   const answer = response.text();
-  const jsonObject = JSON.parse(answer);
-  console.log(jsonObject);
 
   return answer;
 }

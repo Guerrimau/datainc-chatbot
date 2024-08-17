@@ -1,27 +1,36 @@
-import { join } from "path";
 import {
   createBot,
   createProvider,
   createFlow,
   addKeyword,
-  utils,
   EVENTS,
-  addAnswer,
 } from "@builderbot/bot";
 import { MemoryDB as Database } from "@builderbot/bot";
-import GeminiService from "./services/GeminiService";
 import { BaileysProvider as Provider } from "@builderbot/provider-baileys";
-import { convertOrderMessagePrompt } from "./prompts/convert-order-message";
-import { menuMessage } from "./messages/menu-message";
-import { availableProducts } from "./MOCK/available-products";
+
+import { waitTime } from "./utils/wait-time";
 import { getReadableMessageFromOrderList } from "./utils/get-readable-message-from-order-list";
+
+import { menuMessage } from "./messages/menu-message";
 import { optionMessage } from "./messages/fallback-message";
 import { welcomeMessage } from "./messages/welcome-message";
+
+import GeminiService from "./services/GeminiService";
+import { convertOrderMessagePrompt } from "./prompts/convert-order-message";
+
+import { availableProducts } from "./MOCK/available-products";
 
 const PORT = process.env.PORT ?? 3008;
 
 const welcomeFlow = addKeyword<Provider, Database>(EVENTS.WELCOME).addAction(
+  {},
   async (ctx, ctxFn) => {
+    await ctxFn.provider.vendor.sendPresenceUpdate(
+      "composing",
+      ctx.key.remoteJid
+    );
+    await waitTime(2000);
+
     const message = ctx.body.toLowerCase();
 
     const ORDER_WORDS = [
@@ -34,49 +43,64 @@ const welcomeFlow = addKeyword<Provider, Database>(EVENTS.WELCOME).addAction(
 
     const isAnOrder = ORDER_WORDS.some((word) => message.includes(word));
 
-    if (isAnOrder) return await ctxFn.gotoFlow(orderFlow);
+    if (isAnOrder) return await ctxFn.gotoFlow(generateOrderFlow);
     return await ctxFn.gotoFlow(menuFlow);
   }
 );
 
 const fallbackFlow = addKeyword<Provider, Database>(EVENTS.ACTION)
-.addAnswer(optionMessage)
-.addAnswer(menuMessage)
+  .addAnswer(optionMessage)
+  .addAnswer(menuMessage);
 
 const menuFlow = addKeyword<Provider, Database>(EVENTS.ACTION)
-.addAnswer(welcomeMessage)
-.addAnswer(
-  menuMessage,
-  { capture: true },
-  async (ctx, ctxFn) => {
+  .addAnswer(welcomeMessage)
+  .addAnswer(menuMessage, { capture: true }, async (ctx, ctxFn) => {
     const message = ctx.body.toLowerCase();
 
     if (message.includes("1")) {
-      return await ctxFn.gotoFlow(orderFlow);
-    } else if (message.includes("2")) {
-      return await ctxFn.gotoFlow(orderOnlineFlow);
-    } else if (message.includes("3")) {
-      return await ctxFn.gotoFlow(productsFlow);
-  } else {
-    return await ctxFn.gotoFlow(fallbackFlow)
-  }
-});
+      return await ctxFn.gotoFlow(takeOrderFlow);
+    }
 
-const orderFlow = addKeyword<Provider, Database>(EVENTS.ACTION).addAnswer(
+    if (message.includes("2")) {
+      return await ctxFn.gotoFlow(orderOnlineFlow);
+    }
+
+    if (message.includes("3")) {
+      return await ctxFn.gotoFlow(productsFlow);
+    }
+
+    return await ctxFn.gotoFlow(fallbackFlow);
+  });
+
+const takeOrderFlow = addKeyword<Provider, Database>(EVENTS.ACTION).addAnswer(
   "Por favor, escribe tu pedido.",
   { capture: true },
   async (ctx, ctxFn) => {
-    const orderMessage = ctx.body;
-    const orderMessagePrompt = convertOrderMessagePrompt(availableProducts, orderMessage);
-    const response = await GeminiService.getFromPrompt(orderMessagePrompt);
+    await ctxFn.gotoFlow(generateOrderFlow);
+  }
+);
 
-    const order = JSON.parse(response);
-    console.log(order);
-    const answer = getReadableMessageFromOrderList(order);
+const generateOrderFlow = addKeyword<Provider, Database>(
+  EVENTS.ACTION
+).addAction({}, async (ctx, ctxFn) => {
+  await ctxFn.provider.vendor.sendPresenceUpdate(
+    "composing",
+    ctx.key.remoteJid
+  );
 
-    await ctxFn.flowDynamic(answer)
-    await ctxFn.gotoFlow(orderConfirmationFlow);
-  });
+  const orderMessage = ctx.body;
+  const orderMessagePrompt = convertOrderMessagePrompt(
+    availableProducts,
+    orderMessage
+  );
+  const response = await GeminiService.getFromPrompt(orderMessagePrompt);
+
+  const order = JSON.parse(response);
+  const answer = getReadableMessageFromOrderList(order);
+
+  await ctxFn.flowDynamic(answer);
+  await ctxFn.gotoFlow(confirmOrderFlow);
+});
 
 const orderOnlineFlow = addKeyword<Provider, Database>(EVENTS.ACTION).addAnswer(
   "www.elcharly.com"
@@ -86,26 +110,38 @@ const productsFlow = addKeyword<Provider, Database>(EVENTS.ACTION).addAnswer(
   "www.elcharly.com/products"
 );
 
-const orderConfirmationFlow = addKeyword<Provider, Database>(EVENTS.ACTION).addAnswer(
+const confirmOrderFlow = addKeyword<Provider, Database>(
+  EVENTS.ACTION
+).addAnswer(
   "¿Deseas confirmar tu pedido?",
   { capture: true },
   async (ctx, ctxFn) => {
     const message = ctx.body.toLowerCase();
+
     if (message.includes("si")) {
-      console.log(message);  
-      return await ctxFn.gotoFlow(orderFlow);
-    } else if (message.includes("no")) {
-      console.log(message);  
-      return await ctxFn.gotoFlow(menuFlow);
-    } else {
-      console.log(message);  
-      return await ctxFn.gotoFlow(fallbackFlow)
+      console.log(message);
+      return;
     }
+
+    if (message.includes("no")) {
+      console.log(message);
+      return;
+    }
+
+    return await ctxFn.gotoFlow(fallbackFlow);
   }
 );
 
 const main = async () => {
-  const adapterFlow = createFlow([welcomeFlow, menuFlow, orderFlow]);
+  const adapterFlow = createFlow([
+    welcomeFlow,
+    menuFlow,
+    productsFlow,
+    orderOnlineFlow,
+    takeOrderFlow,
+    generateOrderFlow,
+    confirmOrderFlow,
+  ]);
 
   const adapterProvider = createProvider(Provider);
   const adapterDB = new Database();
