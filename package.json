@@ -13,7 +13,7 @@
   "keywords": [],
   "dependencies": {
     "@builderbot/bot": "1.1.6",
-    "@builderbot/provider-baileys": "^1.1.6",
+    "@builderbot/provider-baileys": "1.1.6",
     "@google/generative-ai": "^0.16.0",
     "dotenv": "^16.4.5"
   },
