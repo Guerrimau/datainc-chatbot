@@ -110,22 +110,17 @@ const productsFlow = addKeyword<Provider, Database>(EVENTS.ACTION).addAnswer(
   "www.elcharly.com/products"
 );
 
-const confirmOrderFlow = addKeyword<Provider, Database>(
-  EVENTS.ACTION
-).addAnswer(
-  "¿Deseas confirmar tu pedido?",
-  { capture: true },
-  async (ctx, ctxFn) => {
+const confirmOrderFlow = addKeyword<Provider, Database>(EVENTS.ACTION)
+.addAnswer("¿Deseas confirmar tu pedido?", { capture: true }, async (ctx, ctxFn) => {
     const message = ctx.body.toLowerCase();
 
     if (message.includes("si")) {
-      console.log(message);
-      return;
+      return await ctxFn.flowDynamic(`Gracias por tu pedido! 👋
+        En breve te enviaremos la confirmación de tu orden.`);
     }
 
     if (message.includes("no")) {
-      console.log(message);
-      return;
+      return await ctxFn.gotoFlow(takeOrderFlow);
     }
 
     return await ctxFn.gotoFlow(fallbackFlow);
